@@ -1,0 +1,323 @@
+/* --- Base reset-ish bits you may already have --- */
+html,
+body,
+#root {
+  height: 100%;
+}
+p {
+  margin: 0;
+}
+body {
+  margin: 0;
+  background-color: lightgrey;
+}
+.sr-only {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- Desktop layout ------------------------------------------------------ */
+.mainContainer {
+  height: 100vh; /* lock the layout to the viewport */
+  overflow: hidden; /* we will control scrolling inside children */
+}
+.gallery,
+.uploader {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+img {
+  max-width: 100%;
+  max-height: 100%;
+}
+.flexRow p {
+  width: auto;
+}
+.flexRow {
+  display: flex;
+  justify-content: space-between;
+}
+.titleCont {
+  max-width: 60%;
+  text-align: right;
+}
+.info > div {
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 2px solid black;
+}
+
+.imageResult {
+  position: relative;
+  width: 60%;
+  aspect-ratio: 1 / 1; /* always a perfect square */
+  overflow: hidden;
+  background-color: gray; /* neutral backdrop behind transparent images */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.imageResult img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* show the full image, no cropping */
+  display: block;
+  border-radius: inherit;
+}
+
+.closebtn {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.adjBtn.active {
+  background-color: #222;
+  color: white;
+  border-color: #222;
+}
+
+.uploaderButtons,
+form p,
+.textinputs,
+.wordinputs,
+textarea,
+input {
+  width: 100%;
+}
+
+.right {
+  display: flex;
+  justify-content: flex-end;
+}
+
+textarea {
+  min-height: 50px;
+  max-width: 100%;
+}
+
+.super-default {
+  /* Layout & font */
+  display: inline-block;
+  padding: 0.1rem 0.2rem;
+  /* font-size: 1rem;
+  line-height: 1.5; */
+  /* font-family: system-ui, sans-serif; */
+
+  /* Colors */
+  color: #000;
+  background-color: #e0e0e0;
+  border: 1px solid #a0a0a0;
+  /* border-radius: 4px; */
+
+  /* Effects */
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transition: background-color 0.15s, box-shadow 0.15s, border-color 0.15s;
+}
+
+/* Hover effect (slightly darker like native buttons) */
+.super-default:hover {
+  background-color: #d5d5d5;
+}
+
+/* Active effect (pressed look) */
+.super-default:active {
+  background-color: #c8c8c8;
+  border-color: #888;
+  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* Focus outline (matches system look) */
+.super-default:focus {
+  outline: none;
+  border-color: #4d90fe;
+  box-shadow: 0 0 0 3px rgba(77, 144, 254, 0.4);
+}
+
+/* Disabled state */
+.super-default:disabled {
+  color: #777;
+  background-color: #f0f0f0;
+  border-color: #ccc;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.Card {
+  max-width: 100%;
+  width: 100%;
+}
+.Card img {
+  width: 100%;
+}
+.gallery {
+  max-width: 600px;
+}
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+.succes {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: rgba(57, 255, 20, 0.9);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+.error {
+  background-color: rgba(0, 0, 0, 0.6);
+}
+.succes p {
+  text-align: center;
+  color: grey;
+}
+@media (min-width: 769px) {
+  .mainContainer {
+    display: grid;
+    grid-template-columns: minmax(280px, 420px) 1fr; /* sticky left, fluid right */
+    gap: 0;
+  }
+
+  /* Left pane (the <form class="uploader">… ) */
+  .uploader {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh; /* occupy full viewport height */
+    overflow-y: auto; /* scroll inside the uploader if content is tall */
+    -webkit-overflow-scrolling: touch;
+    padding: 16px; /* optional breathing room */
+    box-sizing: border-box;
+  }
+
+  /* Right pane: gallery scrolls independently */
+  .gallery,
+  .mainContainer > :last-child {
+    /* fallback if you didn't add .gallery */
+    height: 100vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* --- Mobile layout (swipe between panes) --------------------------------- */
+@media (max-width: 768px) {
+  /* Make the container a horizontal scroller with snap points */
+  .mainContainer {
+    display: flex;
+    flex-direction: row;
+    height: 100dvh; /* handles mobile browser chrome better */
+    overflow-x: auto; /* horizontal scroll for swipe */
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory; /* enable snapping between panels */
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x; /* allow horizontal swipe */
+  }
+
+  /* Each panel is full-screen width & height and snaps into place */
+  .uploader,
+  .gallery,
+  .mainContainer > :last-child {
+    /* fallback if you didn't add .gallery */
+    flex: 0 0 100vw; /* each panel occupies full viewport width */
+    height: 100dvh;
+    scroll-snap-align: start;
+    overflow-y: auto; /* vertical scrolling within each panel */
+    -webkit-overflow-scrolling: touch;
+    box-sizing: border-box;
+  }
+
+  /* Keep the uploader content pinned to the top while its inner content scrolls */
+  .uploader {
+    position: sticky;
+    top: 0;
+  }
+
+  /* Optional: show a subtle hint that you can swipe */
+  .uploader::after {
+    content: "Swipe ◀ to gallery";
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    font-size: 12px;
+    opacity: 0.6;
+    pointer-events: none;
+  }
+}
+
+/* --- Optional: nicer scrollbars (WebKit) --------------------------------- */
+.uploader::-webkit-scrollbar,
+.gallery::-webkit-scrollbar,
+.mainContainer > :last-child::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.uploader::-webkit-scrollbar-thumb,
+.gallery::-webkit-scrollbar-thumb,
+.mainContainer > :last-child::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* --- Your existing utilities can live below ------------------------------ */
+/* Example minimal hooks for buttons you already have (optional) */
+.uploader .active {
+  cursor: pointer;
+}
+.uploader .passive {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.uploading {
+  opacity: 0.5;
+}
+
+/* HTML: <div class="loader"></div> */
+.loaderAnim {
+  width: 45px;
+  aspect-ratio: 1;
+  --c: no-repeat linear-gradient(#000 0 0);
+  background: var(--c) 0% 50%, var(--c) 50% 50%, var(--c) 100% 50%;
+  background-size: 20% 100%;
+  animation: l1 1s infinite linear;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+@keyframes l1 {
+  0% {
+    background-size: 20% 100%, 20% 100%, 20% 100%;
+  }
+  33% {
+    background-size: 20% 10%, 20% 100%, 20% 100%;
+  }
+  50% {
+    background-size: 20% 100%, 20% 10%, 20% 100%;
+  }
+  66% {
+    background-size: 20% 100%, 20% 100%, 20% 10%;
+  }
+  100% {
+    background-size: 20% 100%, 20% 100%, 20% 100%;
+  }
+}
