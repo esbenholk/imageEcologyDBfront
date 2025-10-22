@@ -1,7 +1,11 @@
-import React, { useEffect, useState, useRef } from "react";
+// Upload.tsx
+"use client";
+
+import React, { useEffect, useRef, useState } from "react";
 import Gallery from "./Gallery";
 import type { ImageCardProps } from "./imageCardProps";
 import { io, Socket } from "socket.io-client";
+import { mosaicBlend } from "./mosaic"; // adjust path if needed
 
 export function Upload() {
   // ===== State
@@ -14,6 +18,7 @@ export function Upload() {
   const [showUpload, setShowUpload] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
 
+  // For prompt-based generation within uploader (unchanged)
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [remixedPrompt, setRemixedPrompt] = useState("");
 
@@ -40,14 +45,42 @@ export function Upload() {
   const [error, setError] = useState<string>("");
   const [succes, setSucces] = useState(false);
 
+  // ===== Remix UI (moved here from Gallery)
+  const [selectedImages, setSelectedImages] = useState<ImageCardProps[]>([]);
+  const [showRemixer, setShowRemixer] = useState(false);
+  const [collagedImage, setCollagedImage] = useState<string | null>(null);
+  const [remixLoading, setRemixLoading] = useState(false);
+  const [selectedParentIds, setSelectedParentIDs] = useState<string[]>([]);
+
   // ===== Refs to handle dev strict-mode + re-entrancy
   const didLoadRef = useRef(false);
   const inFlightRef = useRef(false);
 
-  // ===== Socket (create/cleanup per mount)
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const remixerRef = useRef<HTMLElement | null>(null);
+
+  const snapToPane = (pane: "uploader" | "gallery" | "remixer") => {
+    const el =
+      pane === "remixer"
+        ? remixerRef.current
+        : pane === "gallery"
+        ? (containerRef.current?.children[1] as HTMLElement)
+        : (containerRef.current?.children[0] as HTMLElement);
+
+    if (!el || !containerRef.current) return;
+
+    // Only do the horizontal scroll behavior on small screens
+    if (window.matchMedia("(max-width: 768px)").matches) {
+      containerRef.current.scrollTo({
+        left: el.offsetLeft,
+        behavior: "smooth",
+      });
+    }
+  };
+
+  // ===== Socket
   const socketRef = useRef<Socket | null>(null);
   useEffect(() => {
-    // create user id once per session
     let storedUserId = sessionStorage.getItem("userId");
     if (!storedUserId) {
       storedUserId = Math.random().toString(36).substring(7);
@@ -77,14 +110,14 @@ export function Upload() {
     };
   }, []);
 
-  // ===== Initial load (strict-mode safe)
+  // ===== Initial load
   useEffect(() => {
-    if (didLoadRef.current) return; // prevents double-run in React 18 dev
+    if (didLoadRef.current) return;
     didLoadRef.current = true;
     void fetchRecentImages();
   }, []);
 
-  // ===== Fetch images (guarded)
+  // ===== Fetch images
   const fetchRecentImages = async () => {
     if (inFlightRef.current) return;
     inFlightRef.current = true;
@@ -101,25 +134,24 @@ export function Upload() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
-      console.log("has data", data);
-
       if (Array.isArray(data) && data.length) {
-        const mapped: ImageCardProps[] = data.map((data: any) => ({
-          title: data.title,
-          url: data.url,
-          tags: data.tags,
-          aiCaption: data.caption,
-          description: data.alt || "Untitled",
-          aiTitle: data.ai_title,
-          aiVibe: data.ai_vibe,
-          aiObjects: data.ai_objects,
-          aiFeeling: data.ai_feeling,
-          id: data.id,
-          community: data.community,
-          parentIds: data.parentIds,
-          ai_so_me_type: data.aiSoMeType,
-          aiStyle: data.aiStyle,
-          aiTrend: data.aiTrend,
+        const mapped: ImageCardProps[] = data.map((d: any) => ({
+          title: d.title,
+          url: d.url,
+          tags: d.tags,
+          aiCaption: d.caption,
+          description: d.alt || "Untitled",
+          aiTitle: d.ai_title,
+          aiVibe: d.ai_vibe,
+          aiObjects: d.ai_objects,
+          aiFeeling: d.ai_feeling,
+          id: d.id,
+          community: d.community,
+          parentIds: d.parentIds,
+          ai_so_me_type: d.aiSoMeType,
+          aiStyle: d.aiStyle,
+          aiTrend: d.aiTrend,
+          aiPeople: d.aiPeople,
         }));
 
         setNews((prev) => [...prev, ...mapped]);
@@ -139,7 +171,7 @@ export function Upload() {
     return () => ac.abort();
   };
 
-  // ===== Derive available communities from news (lowercased + unique) + presets
+  // ===== Derive available communities
   useEffect(() => {
     const uniqueFromNews = Array.from(
       new Set(
@@ -148,10 +180,8 @@ export function Upload() {
           .filter(Boolean) as string[]
       )
     );
-
     const presets = ["brainrot", "thirsttrap", "lifestyle"];
     const merged = Array.from(new Set([...uniqueFromNews, ...presets]));
-
     setAvailableCommunities(merged);
   }, [news]);
 
@@ -222,7 +252,43 @@ export function Upload() {
     setClasses((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // ===== Generation + Upload
+  const clearRemixSelection = () => {
+    setSelectedImages([]);
+    setGeneratedImage(null); // AI remix preview
+    setCollagedImage(null); // collage preview
+    setSelectedParentIDs([]);
+    setRemixedPrompt("");
+    setImage(null); // you set this during remix/collage previews
+    setRemixLoading(false);
+    setError(""); // optional: clear any stale error
+  };
+  // put with your other handlers
+  const clearForm = () => {
+    // text & prompt bits
+    setText("");
+    if (textArea.current) textArea.current.value = "";
+
+    // tags & classes
+    setWords([]);
+    setCurrentWord("");
+    setClasses([]);
+    setCurrentClass("");
+
+    // community
+    setCommunity("");
+
+    // previews & gen
+    setImage(null);
+    setGeneratedImage(null);
+
+    // misc ui
+    setError("");
+    setSucces(false);
+    setLoading(false);
+    setUploadLoading(false);
+  };
+
+  // ===== Generation inside Upload (prompt-based)
   const generateImage = async () => {
     setLoading(true);
     const promptText = textArea.current?.value ?? "";
@@ -254,22 +320,141 @@ export function Upload() {
     }
   };
 
-  const upLoadImage = async (_image: string) => {
+  // ===== Remix flows (moved here)
+  const onToggleSelection = (image: ImageCardProps) => {
+    setSelectedImages((prev) =>
+      prev.some((img) => img.url === image.url)
+        ? prev.filter((img) => img.url !== image.url)
+        : [...prev, image]
+    );
+  };
+
+  const generateRemixImage = async () => {
+    setRemixLoading(true);
+    setCollagedImage(null);
+
+    if (selectedImages.length > 1) {
+      try {
+        const descriptions: string[] = [];
+        const tags: string[] = [];
+        const ids: string[] = [];
+        const styles: string[] = [];
+        const communities: string[] = [];
+        const trends: string[] = [];
+        const people: string[] = [];
+        const objects: string[] = [];
+
+        for (const el of selectedImages) {
+          console.log("selected IMAGE:", el);
+          descriptions.push(el.description);
+          ids.push(el.url);
+          (el.tags || []).forEach((t) => tags.push(t));
+          if (el.aiStyle) styles.push(el.aiStyle);
+          if (el.community) communities.push(el.community);
+          if (el.aiTrend) trends.push(el.aiTrend);
+
+          (el.aiPeople || []).forEach((t) => people.push(t));
+          if (el.aiObjects) objects.push(el.aiObjects);
+        }
+
+        // store the lineage
+        setSelectedParentIDs(ids);
+
+        // helpful de-dupe + trim
+        const uniq = (arr: string[]) =>
+          Array.from(new Set(arr.filter(Boolean).map((s) => s.trim())));
+
+        const payload = {
+          // keep compatibility with existing server code
+          prompt: descriptions.join(", ") || "utopias",
+          adjectives: uniq(tags).join(", "),
+          // new rich context
+          styles: uniq(styles),
+          communities: uniq(communities),
+          trends: uniq(trends),
+          descriptions, // full list
+          parentIds: ids, // so server can echo/store lineage
+          people: uniq(people),
+        };
+
+        const response = await fetch(`/api/generateImage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+
+        setRemixedPrompt(data.remixedPrompt || "");
+        setText(data.remixedPrompt || "");
+        if (tags.length) setWords(uniq(tags));
+
+        if (!response.ok) throw new Error(data.error || "Generation failed");
+        setGeneratedImage(data.imageUrl);
+        setImage(data.imageUrl); // if you want the uploader preview populated too
+      } catch (err) {
+        setError("remix generation failed");
+      } finally {
+        setRemixLoading(false);
+      }
+    } else {
+      setRemixLoading(false);
+    }
+  };
+
+  const generateRemixCollage = async () => {
+    if (selectedImages.length < 2) return;
+    setRemixLoading(true);
+    setGeneratedImage(null);
+    try {
+      const ids = selectedImages.map((i) => i.url);
+      setSelectedParentIDs(ids);
+
+      const dataUrl = (await mosaicBlend(ids, {
+        size: 1024,
+        block: 32,
+        returnType: "dataURL",
+        seed: undefined,
+      })) as string;
+
+      if (!text) setText("collage of fragments");
+      if (words.length === 0) {
+        const tags = selectedImages.flatMap((i) => i.tags || []);
+        setWords(tags);
+      }
+      setImage(dataUrl);
+      setCollagedImage(dataUrl);
+    } catch {
+      setError("collage failed");
+    } finally {
+      setRemixLoading(false);
+    }
+  };
+
+  // ===== Unified Upload (supports normal + remix)
+  const upLoadImage = async (
+    _image: string,
+    extras?: {
+      parentIds?: string[];
+      remixedPrompt?: string;
+      tagsOverride?: string[];
+    }
+  ) => {
     try {
       setUploadLoading(true);
       const promptText = textArea.current?.value ?? "";
 
       if (_image != null) {
-        const tags = joinWithComma(words);
         const response = await fetch(`/api/cloudinary/upload`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             imageUrl: _image,
             title: promptText || "_",
-            tags,
+            tags: joinWithComma(extras?.tagsOverride ?? words),
             classes: joinWithComma(classes),
             community,
+            parentIds: extras?.parentIds,
+            remixedPrompt: extras?.remixedPrompt,
           }),
         });
 
@@ -294,6 +479,7 @@ export function Upload() {
             ai_so_me_type: data.aiSoMeType,
             aiStyle: data.aiStyle,
             aiTrend: data.aiTrend,
+            aiPeople: data.aiPeople,
           };
 
           shareImageToSocket(card);
@@ -315,6 +501,10 @@ export function Upload() {
       setClasses([]);
       setWords([]);
       setGeneratedImage(null);
+      setCollagedImage(null);
+      setSelectedParentIDs([]);
+      setSelectedImages([]);
+      setShowRemixer(false);
     }
   };
 
@@ -327,13 +517,11 @@ export function Upload() {
       reader.readAsDataURL(file);
     }
   };
-
   const shareImageToSocket = (_image: ImageCardProps) => {
     socketRef.current?.emit("hello", _image);
   };
-
   const poorImageIntoCouldron = (_image: ImageCardProps) => {
-    setNews((prev) => [_image, ...prev]); // immutable
+    setNews((prev) => [_image, ...prev]);
     showSucces();
     setImage(null);
     setGeneratedImage(null);
@@ -360,6 +548,14 @@ export function Upload() {
       // no image provided
     }
   };
+
+  const hasFormData =
+    !!image ||
+    !!generatedImage ||
+    text.trim().length > 0 ||
+    words.length > 0 ||
+    classes.length > 0 ||
+    community.trim().length > 0;
 
   // ===== Render
   return (
@@ -390,20 +586,23 @@ export function Upload() {
           />
         </div>
 
-        <div className="imageResult">
-          {image ? (
-            <>
-              <button
-                className="closebtn"
-                type="button"
-                onClick={() => setImage(null)}
-              >
-                X
-              </button>
-              <img src={image} alt="Preview" className="subImage" />
-            </>
-          ) : null}
-          {uploading ? <div className="loaderAnim"></div> : null}
+        <div className="imageResultContainer">
+          {" "}
+          <div className="imageResult">
+            {image ? (
+              <>
+                <button
+                  className="closebtn"
+                  type="button"
+                  onClick={() => setImage(null)}
+                >
+                  X
+                </button>
+                <img src={image} alt="Preview" className="subImage" />
+              </>
+            ) : null}
+            {uploading ? <div className="loaderAnim"></div> : null}
+          </div>
         </div>
 
         <div className={error ? "textinputs error" : "textinputs"}>
@@ -470,8 +669,6 @@ export function Upload() {
 
         <div className={error ? "textinputs error" : "textinputs"}>
           <p>community</p>
-
-          {/* Existing communities as selectable buttons */}
           <div className="flex-row-wrap adjButtons">
             {availableCommunities.map((comm) => (
               <button
@@ -484,8 +681,6 @@ export function Upload() {
               </button>
             ))}
           </div>
-
-          {/* Manual input for custom community */}
           <input
             type="text"
             value={community}
@@ -496,21 +691,40 @@ export function Upload() {
           />
         </div>
 
-        <div className="uploaderButtons right">
+        <div
+          className={
+            !hasFormData ? "uploaderButtons right" : "uploaderButtons between"
+          }
+        >
+          {hasFormData && (
+            <button type="button" className="super-default" onClick={clearForm}>
+              clear form
+            </button>
+          )}
           <button
             type="submit"
             className={
               loading
-                ? "passive"
+                ? "passive super-default"
                 : generatedImage
-                ? "active"
+                ? "active super-default"
                 : image
-                ? "active"
-                : "passive"
+                ? "active super-default"
+                : "passive super-default"
             }
           >
             {loading ? "loading content" : <>upload</>}
           </button>
+          {/* OPTIONAL: generate from prompt
+          <button
+            type="button"
+            onClick={generateImage}
+            className={!loading ? "active" : "passive"}
+            disabled={loading}
+            style={{ marginLeft: 8 }}
+          >
+            {generatedImage ? "regenerate (AI)" : "generate (AI)"}
+          </button> */}
         </div>
 
         {succes && (
@@ -518,7 +732,7 @@ export function Upload() {
             <p>upload complete</p>
           </div>
         )}
-        {error && error != "" && (
+        {error && error !== "" && (
           <div
             className="succes error"
             onClick={() => {
@@ -530,11 +744,17 @@ export function Upload() {
         )}
       </form>
 
+      {/* MIDDLE: Gallery */}
       <div className="gallery">
         <Gallery
           news={news}
-          poorRemixedImageIntoCouldron={poorImageIntoCouldron}
-          shareImageToSocket={shareImageToSocket}
+          communityCategories={availableCommunities}
+          selectedImages={selectedImages}
+          onToggleSelection={onToggleSelection}
+          onOpenRemixer={() => {
+            setShowRemixer(true);
+            snapToPane("remixer"); // scrolls to the right pane on mobile
+          }}
         />
         {!isFetchingRecent && (
           <div style={{ marginTop: 16 }}>
@@ -548,6 +768,128 @@ export function Upload() {
           </div>
         )}
       </div>
+
+      {/* RIGHT: Remixer panel (used to be the overlay) */}
+      <aside className={`remixer open"}`} ref={remixerRef}>
+        <p>remix images from the ecology simulation</p>
+
+        <div className="uploaderButtons galleryUploaderButtons">
+          <button
+            disabled={remixLoading}
+            className={
+              !remixLoading ? "active super-default" : "passive super-default"
+            }
+            onClick={(e) => {
+              e.preventDefault();
+              generateRemixImage();
+            }}
+          >
+            {generatedImage ? "recreate AI remix" : "AI remix"}
+          </button>
+
+          <button
+            disabled={remixLoading}
+            className={
+              !remixLoading ? "active super-default" : "passive super-default"
+            }
+            onClick={(e) => {
+              e.preventDefault();
+              generateRemixCollage();
+            }}
+          >
+            {collagedImage ? "reblend collage" : "collage"}
+          </button>
+
+          {/* <button
+            type="button"
+            onClick={() => {
+              const imgToUpload = generatedImage || collagedImage;
+              if (imgToUpload) {
+                upLoadImage(imgToUpload, {
+                  parentIds: selectedParentIds,
+                  remixedPrompt: remixedPrompt || text,
+                  tagsOverride: words,
+                });
+              }
+            }}
+            className={
+              remixLoading
+                ? "passive"
+                : generatedImage || collagedImage
+                ? "active"
+                : "passive"
+            }
+          >
+            {remixLoading ? "loading content" : <>pour into potion</>}
+          </button> */}
+        </div>
+        <div className="imageResultContainer">
+          <div className="imageResult">
+            {remixLoading ? (
+              <div className="loaderAnim"></div>
+            ) : generatedImage ? (
+              <img
+                src={generatedImage}
+                alt="Generated"
+                className="w-full rounded-lg"
+              />
+            ) : collagedImage ? (
+              <img
+                src={collagedImage}
+                alt="Generated"
+                className="w-full rounded-lg"
+              />
+            ) : (
+              <>
+                <div
+                  className=" remixSelection"
+                  style={
+                    {
+                      ["--cols" as any]: Math.max(
+                        1,
+                        Math.ceil(Math.sqrt(selectedImages.length))
+                      ),
+                      ["--rows" as any]: Math.max(
+                        1,
+                        Math.ceil(
+                          selectedImages.length /
+                            Math.max(
+                              1,
+                              Math.ceil(Math.sqrt(selectedImages.length))
+                            )
+                        )
+                      ),
+                      ["--gap" as any]: "8px",
+                      ["--radius" as any]: "8px",
+                    } as React.CSSProperties
+                  }
+                >
+                  {selectedImages.map((img, index) => (
+                    <img src={img.url} key={index} />
+                  ))}
+                </div>
+
+                {selectedImages.length < 2 && (
+                  <p className="imageNotice">
+                    u need at least 2 images from the db
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+        {selectedImages.length > 0 && (
+          <div className="uploaderButtons right">
+            <button
+              type="button"
+              onClick={clearRemixSelection}
+              className="super-default"
+            >
+              clear remix
+            </button>
+          </div>
+        )}
+      </aside>
     </div>
   );
 }

@@ -14,4 +14,5 @@ export type ImageCardProps = {
   aiFeeling: string;
   aiStyle: string;
   aiTrend: string;
+  aiPeople: string[];
 };

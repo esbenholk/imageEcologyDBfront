@@ -133,7 +133,13 @@ export const Card: React.FC<{ data: ImageCardProps }> = ({ data }) => {
         {parentIds.length > 0 ? (
           <div className="input">
             <p className="label">parents:</p>
-            <div className="parent-previews">
+            <div
+              className="parent-previews"
+              style={{
+                ["--count" as any]: parentIds.length,
+                ["--gap" as any]: "8px",
+              }}
+            >
               {parentIds.map((src, index) => (
                 <img
                   key={index}

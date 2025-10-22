@@ -76,7 +76,7 @@ export async function POST(request: Request) {
         You will be given an image collected in a users social media feed: "${title}".
 
         Return ONLY minified JSON with these keys:
-        {"title":"","caption":"","altText":"","feeling":"","so_me_type":"", "trend: "", "style: "", "feeling": "","tags":[],"vibe":[],"objects":[],"scenes":[]}
+        {"title":"","caption":"","altText":"","feeling":"","so_me_type":"", "trend: "", "style: "", "feeling": "","tags":[],"vibe":[],"objects":[],"scenes":[], "people":[]}
 
         Rules:
         - "title": ≤ 7 words, aligned with "${title}" (refine if needed).
@@ -88,6 +88,7 @@ export async function POST(request: Request) {
         - "feeling": speculate what feelings it might produce looking at the picture and/or what feelings are the reason i want to look at the image.
         - "objects": up to 8 concrete things visible.
         - "style": up to 2 sentences describing the image style for further image prompting and reproducing.
+        - "people": check if there are any faces. Please describe each face. If they are a celebrity, please name them.
         - No extra text; JSON only.`;
 
       const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
@@ -129,7 +130,7 @@ export async function POST(request: Request) {
         feeling: String(ai?.feeling ?? "").trim(),
         trend: String(ai?.trend ?? "").trim(),
         style: String(ai?.style ?? "").trim(),
-
+        people: Array.isArray(ai?.people) ? ai.people.map(String) : [],
         tags: Array.isArray(ai?.tags) ? ai.tags.map(String) : [],
         vibe: Array.isArray(ai?.vibe) ? ai.vibe.map(String) : [],
         objects: Array.isArray(ai?.objects) ? ai.objects.map(String) : [],
@@ -163,6 +164,7 @@ export async function POST(request: Request) {
           ai_objects: (payload.objects || []).slice(0, 5).join(", "),
           community: community,
           parentIds: parentIds != null ? parentIds : "",
+          ai_people: payload.people,
         },
       });
 
@@ -180,6 +182,7 @@ export async function POST(request: Request) {
         community: community,
         tags: mergedTags.concat(tags),
         parentIds: parentIds != null && parentIds,
+        ai_people: payload.people,
       });
     } else {
       console.error("explicit image");

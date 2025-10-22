@@ -1,0 +1,471 @@
+/*!***********************************************************************************************************************************************************************************************************************************************************!*\
+  !*** css ./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!./src/index.css ***!
+  \***********************************************************************************************************************************************************************************************************************************************************/
+/* --- Base reset-ish bits you may already have --- */
+html,
+body,
+#root {
+  height: 100%;
+  font-family: Arial, Helvetica, sans-serif;
+}
+p {
+  margin: 0;
+}
+body {
+  margin: 0;
+  background-color: lightgrey;
+}
+.sr-only {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- Desktop layout ------------------------------------------------------ */
+.mainContainer {
+  height: 100vh; /* lock the layout to the viewport */
+  overflow: hidden; /* we will control scrolling inside children */
+}
+.imageResultContainer {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+/* shared panel base */
+.uploader,
+.gallery,
+.remixer {
+  padding: 10px;
+  /* display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center; */
+  box-sizing: border-box;
+}
+
+.uploader div,
+.gallery div,
+.remixer div {
+  padding-bottom: 10px;
+}
+
+img {
+  max-width: 100%;
+  max-height: 100%;
+}
+.flexRow p {
+  width: auto;
+}
+.flexRow {
+  display: flex;
+  justify-content: space-between;
+}
+.catChoice {
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+.titleCont {
+  max-width: 60%;
+  text-align: right;
+}
+.info > div {
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 2px solid rgba(57, 255, 20, 0.85);
+}
+
+.imageResult {
+  position: relative;
+  width: 60%;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  background-color: gray;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.imageResult img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  border-radius: inherit;
+}
+.closebtn {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.adjBtn.active {
+  background-color: rgba(57, 255, 20, 0.85);
+  color: white;
+  border-color: rgba(57, 255, 20, 0.85);
+}
+
+form p,
+.textinputs,
+.wordinputs {
+  width: 100%;
+}
+textarea,
+input {
+  width: 98%;
+}
+
+.uploaderButtons {
+  height: 50px;
+  width: 100%;
+}
+
+.uploaderButtons button,
+.uploaderButtons label {
+  max-height: 20px;
+  font-size: 14px;
+  flex-grow: 0;
+  flex: none;
+}
+.galleryUploaderButtons {
+  display: flex;
+  flex-direction: column;
+}
+.right {
+  display: flex;
+  justify-content: flex-end;
+}
+.between {
+  display: flex;
+  justify-content: space-between;
+}
+textarea {
+  min-height: 50px;
+  max-width: 98%;
+}
+
+/* button aesthetic you had */
+.super-default {
+  display: inline-block;
+  padding: 0.1rem 0.2rem;
+  color: #000;
+  background: #e0e0e0;
+  border: 1px solid rgba(57, 255, 20, 0.85);
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(57, 255, 20, 0.85);
+  transition: background-color 0.15s, box-shadow 0.15s, border-color 0.15s;
+}
+.super-default:hover {
+  background: #d5d5d5;
+}
+.super-default:active {
+  background: #c8c8c8;
+  border-color: #888;
+  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.2);
+}
+.super-default:focus {
+  outline: none;
+  border-color: #4d90fe;
+  box-shadow: 0 0 0 3px rgba(77, 144, 254, 0.4);
+}
+.super-default:disabled {
+  color: #777;
+  background: #f0f0f0;
+  border-color: #ccc;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.Card {
+  max-width: 100%;
+  width: 100%;
+}
+.Card img {
+  width: 100%;
+}
+.selected {
+  background-color: rgba(57, 255, 20, 0.85);
+}
+/* .gallery {
+  max-width: 600px;
+} */
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+.succes {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(57, 255, 20, 0.85);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+.error {
+  background-color: rgba(0, 0, 0, 0.6);
+}
+.succes p {
+  text-align: center;
+  color: grey;
+}
+
+/* >>> Desktop 3-column grid */
+@media (min-width: 769px) {
+  .mainContainer {
+    display: grid;
+    grid-template-columns:
+      minmax(280px, 420px) /* sticky left uploader */
+      minmax(420px, 1fr) /* scrolling gallery */
+      minmax(280px, 420px); /* sticky right remixer */
+    gap: 0;
+  }
+
+  .uploader,
+  .remixer {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    /* height: auto; */
+    overflow-y: auto; /* internal scroll if needed */
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .uploader {
+    border-right: 1px solid rgba(57, 255, 20, 0.85);
+  }
+  .remixer {
+    border-left: 1px solid rgba(57, 255, 20, 0.85);
+  }
+
+  /* middle pane scrolls independently */
+  .gallery {
+    height: 100vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    background: #fff;
+  }
+
+  /* when remixer is 'collapsed', keep the column but hide the inner UI */
+  .remixer.collapsed .selectedImages,
+  .remixer.collapsed .imageResult,
+  .remixer.collapsed .uploaderButtons,
+  .remixer.collapsed .loaderAnim {
+    display: none;
+  }
+  .remixer.collapsed .remixPlaceholder {
+    display: block;
+    opacity: 0.7;
+    padding: 16px;
+    text-align: center;
+  }
+  .remixer.open .remixPlaceholder {
+    display: none;
+  }
+}
+
+/* --- Mobile layout (swipe between panes) --------------------------------- */
+@media (max-width: 768px) {
+  .mainContainer {
+    display: flex;
+    flex-direction: row;
+    height: 100dvh;
+    overflow-x: auto; /* horizontal swipe */
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory; /* snap panels */
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x;
+  }
+
+  .uploader,
+  .gallery,
+  .remixer {
+    flex: 0 0 100vw; /* each panel full width */
+    height: 100dvh;
+    scroll-snap-align: start;
+    overflow-y: auto; /* vertical inside each */
+    -webkit-overflow-scrolling: touch;
+
+    position: relative; /* so .closebtn can be absolute */
+  }
+
+  /* subtle swipe hints (optional)
+  .uploader::after {
+    content: "Swipe ◀ to gallery";
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    font-size: 12px;
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  .gallery::after {
+    content: "Swipe ◀ to remix ▶";
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    font-size: 12px;
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  .remixer::after {
+    content: "Swipe ▶ to uploader";
+    position: absolute;
+    left: 12px;
+    bottom: 12px;
+    font-size: 12px;
+    opacity: 0.6;
+    pointer-events: none;
+  } */
+}
+
+/* --- Optional: nicer scrollbars (WebKit) --------------------------------- */
+.uploader::-webkit-scrollbar,
+.gallery::-webkit-scrollbar,
+.remixer::-webkit-scrollbar,
+.mainContainer > :last-child::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.uploader::-webkit-scrollbar-thumb,
+.gallery::-webkit-scrollbar-thumb,
+.remixer::-webkit-scrollbar-thumb,
+.mainContainer > :last-child::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* --- Your existing utilities -------------------------------------------- */
+/* .uploader .active {
+  cursor: pointer;
+}
+.uploader .passive {
+  opacity: 0.5;
+  cursor: not-allowed;
+} */
+.uploading {
+  opacity: 0.5;
+}
+
+/* loader */
+.loaderAnim {
+  width: 45px;
+  aspect-ratio: 1;
+
+  --c: no-repeat linear-gradient(rgba(57, 255, 20, 1) 0 0);
+  background: var(--c) 0% 50%, var(--c) 50% 50%, var(--c) 100% 50%;
+  background-size: 20% 100%;
+  animation: l1 1s infinite linear;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+@keyframes l1 {
+  0% {
+    background-size: 20% 100%, 20% 100%, 20% 100%;
+  }
+  33% {
+    background-size: 20% 10%, 20% 100%, 20% 100%;
+  }
+  50% {
+    background-size: 20% 100%, 20% 10%, 20% 100%;
+  }
+  66% {
+    background-size: 20% 100%, 20% 100%, 20% 10%;
+  }
+  100% {
+    background-size: 20% 100%, 20% 100%, 20% 100%;
+  }
+}
+
+/* Remixer panel extras */
+.remixerHeader {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  background: inherit;
+  padding: 4px 0;
+  z-index: 1;
+}
+.remixPlaceholder {
+  display: none;
+}
+/* parent preview strip that scales all children to fit */
+.parent-previews {
+  /* never exceed parent */
+  max-width: 100%;
+  width: 100%;
+
+  /* layout: one row with N equal columns */
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-columns: repeat(var(--count, 1), minmax(0, 1fr));
+  gap: var(--gap, 6px);
+
+  /* keep everything inside */
+  overflow: hidden;
+  align-items: stretch;
+}
+
+/* images tile perfectly and keep their crop */
+.parent-previews img {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 1 / 1; /* square tiles; remove if you want natural aspect */
+  object-fit: contain; /* or 'contain' if you want full image letterboxed */
+  display: block;
+}
+.remixer p {
+  width: 100%;
+  text-align: right;
+}
+
+.imageNotice {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  font-size: 10px;
+  color: white;
+  margin: 5px;
+  width: auto !important;
+}
+/* fixed box that never exceeds its parent */
+.remixSelection {
+  aspect-ratio: 1 / 1; /* square box; remove if you want free height */
+  overflow: hidden; /* nothing spills out */
+  box-sizing: border-box;
+
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 1), 1fr);
+  grid-template-rows: repeat(var(--rows, 1), 1fr);
+  gap: var(--gap, 8px);
+}
+
+/* each tile fills its cell */
+.remixSelection .tile {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: var(--radius, 6px);
+}
+
+/* image scales to cell; choose cover vs contain */
+.remixSelection .tile > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* or 'contain' if you prefer letterboxing */
+  display: block;
+}
+
