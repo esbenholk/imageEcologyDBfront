@@ -34,6 +34,7 @@ type ImageItem = {
   aiObjects: string | null; // CSV (first 5) you stored
   community: string | null;
   parentIds: string | null;
+  aiPeople: string[] | null;
 };
 
 export async function GET(request: Request) {
@@ -84,6 +85,10 @@ export async function GET(request: Request) {
           pick(cx, "parentIds", "parentIds") ??
           pick(md, "parentIds", "parentIds");
 
+        const aiPeople =
+          pick(cx, "aiPeople", "ai_people") ??
+          pick(md, "aiPeople", "ai_people");
+
         const caption =
           pick(cx, "caption", "caption") ?? pick(md, "caption", "caption");
         const alt =
@@ -126,6 +131,7 @@ export async function GET(request: Request) {
           aiTitle: aiTitle ?? null,
           aiStyle: aiStyle ?? null,
           aiTrend: aiTrend ?? null,
+          aiPeople: aiPeople ?? null,
           aiSoMeType: aiSoMeType ?? null,
           aiVibe: aiVibe ?? null,
           aiObjects: aiObjects ?? null,
