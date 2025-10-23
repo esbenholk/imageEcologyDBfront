@@ -353,7 +353,12 @@ export function Upload() {
           if (el.community) communities.push(el.community);
           if (el.aiTrend) trends.push(el.aiTrend);
 
-          (el.aiPeople || []).forEach((t) => people.push(t));
+          if (el.aiPeople) {
+            JSON.parse(el.aiPeople.toString()).forEach((t: any) =>
+              people.push(t)
+            );
+          }
+
           if (el.aiObjects) objects.push(el.aiObjects);
         }
 
@@ -383,6 +388,8 @@ export function Upload() {
           body: JSON.stringify(payload),
         });
         const data = await response.json();
+
+        console.log(data);
 
         setRemixedPrompt(data.remixedPrompt || "");
         setText(data.remixedPrompt || "");
