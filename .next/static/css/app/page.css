@@ -426,6 +426,7 @@ textarea {
   aspect-ratio: 1 / 1; /* square tiles; remove if you want natural aspect */
   object-fit: contain; /* or 'contain' if you want full image letterboxed */
   display: block;
+  max-height: 100px;
 }
 .remixer p {
   width: 100%;

@@ -39,7 +39,7 @@ export async function POST(request: Request) {
         alt: title,
         caption: title,
         parentIds: parentIds != null ? parentIds.toString() : "",
-        community: community,
+        community: community != null ? community : null,
       },
       moderation:
         "aws_rek:" +
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
         - "tags": up to 12 short tags (nouns/adjectives; no hashtags/emojis).
         - "feeling": speculate what feelings it might produce looking at the picture and/or what feelings are the reason i want to look at the image.
         - "objects": up to 8 concrete things visible.
-        - "style": up to 2 sentences describing the image style for further image prompting and reproducing.
+        - "style": sentences describing the image style for further image prompting and reproducing. this should incl. if the image is a photograph, illustration, drawing etc. please also annotate if its realistic or not. basically any style comments that might help me prompt a reproduction.
         - "people": check if there are any faces. Please describe each face. If they are a celebrity, please name them.
         - No extra text; JSON only.`;
 

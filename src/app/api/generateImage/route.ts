@@ -89,7 +89,7 @@ export async function POST(request: Request) {
       size: "1024x1024",
     });
 
-    console.log("produces image for:" + userPrompt);
+    console.log("produces image for:" + sentence);
 
     const data = {
       // Echo for clients to store lineage / metadata

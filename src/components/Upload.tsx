@@ -52,6 +52,12 @@ export function Upload() {
   const [remixLoading, setRemixLoading] = useState(false);
   const [selectedParentIds, setSelectedParentIDs] = useState<string[]>([]);
 
+  const [uploadExtras, setUploadExtras] = useState<{
+    parentIds?: string[];
+    remixedPrompt?: string;
+    tagsOverride?: string[];
+  } | null>(null);
+
   // ===== Refs to handle dev strict-mode + re-entrancy
   const didLoadRef = useRef(false);
   const inFlightRef = useRef(false);
@@ -261,6 +267,7 @@ export function Upload() {
     setImage(null); // you set this during remix/collage previews
     setRemixLoading(false);
     setError(""); // optional: clear any stale error
+    setUploadExtras(null); // NEW
   };
   // put with your other handlers
   const clearForm = () => {
@@ -286,6 +293,8 @@ export function Upload() {
     setSucces(false);
     setLoading(false);
     setUploadLoading(false);
+
+    setUploadExtras(null); // NEW
   };
 
   // ===== Generation inside Upload (prompt-based)
@@ -369,12 +378,18 @@ export function Upload() {
         const uniq = (arr: string[]) =>
           Array.from(new Set(arr.filter(Boolean).map((s) => s.trim())));
 
+        setUploadExtras({
+          parentIds: ids,
+          remixedPrompt: descriptions.toString() || "",
+          tagsOverride: uniq(tags),
+        });
+
         const payload = {
           // keep compatibility with existing server code
-          prompt: descriptions.join(", ") || "utopias",
+          prompt: descriptions.join(", ") || "",
           adjectives: uniq(tags).join(", "),
           // new rich context
-          styles: uniq(styles),
+          styles: styles.toString(),
           communities: uniq(communities),
           trends: uniq(trends),
           descriptions, // full list
@@ -430,6 +445,12 @@ export function Upload() {
       }
       setImage(dataUrl);
       setCollagedImage(dataUrl);
+
+      setUploadExtras({
+        parentIds: ids,
+        remixedPrompt: "",
+        tagsOverride: [],
+      });
     } catch {
       setError("collage failed");
     } finally {
@@ -449,6 +470,8 @@ export function Upload() {
     try {
       setUploadLoading(true);
       const promptText = textArea.current?.value ?? "";
+
+      console.log("IMAGE UPLOAD NOW", _image, extras);
 
       if (_image != null) {
         const response = await fetch(`/api/cloudinary/upload`, {
@@ -547,9 +570,9 @@ export function Upload() {
     setLoading(true);
 
     if (image) {
-      await upLoadImage(image);
+      await upLoadImage(image, uploadExtras ?? undefined);
     } else if (generatedImage) {
-      await upLoadImage(generatedImage);
+      await upLoadImage(generatedImage, uploadExtras ?? undefined);
     } else {
       setLoading(false);
       // no image provided
