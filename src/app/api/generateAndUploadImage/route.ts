@@ -7,14 +7,34 @@ import OpenAI from "openai";
 function dedupLower(arr: string[]) {
   const seen: Record<string, true> = {};
   const out: string[] = [];
-  for (const t of arr) {
-    const k = t.trim().toLowerCase();
+  for (const t of arr || []) {
+    const k = String(t ?? "")
+      .trim()
+      .toLowerCase();
     if (k && !seen[k]) {
       seen[k] = true;
-      out.push(t.trim());
+      out.push(String(t).trim());
     }
   }
   return out;
+}
+
+function join(arr?: string[] | null, sep = ", ") {
+  if (!arr || !Array.isArray(arr) || arr.length === 0) return "";
+  return arr
+    .map((s) => String(s ?? "").trim())
+    .filter(Boolean)
+    .join(sep);
+}
+
+function asArray(v: unknown): string[] {
+  if (Array.isArray(v)) return v.map(String);
+  if (v == null) return [];
+  // comma-separated string support
+  return String(v)
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 // ---------- clients ----------
@@ -31,68 +51,89 @@ cloudinary.config({
 // ---------- route ----------
 export async function POST(request: Request) {
   try {
-    const {
-      prompt = "",
-      adjectives = "",
-      title = "",
-      // tags can come as a string (comma-sep) or string[]
-      tags,
-      parentIds,
-      community,
-      folder = "imageEcology",
-    }: {
-      prompt?: string;
-      adjectives?: string;
-      title?: string;
-      tags?: string | string[];
-      parentIds?: string[] | string | null;
-      community?: string | null;
-      folder?: string;
-    } = await request.json();
+    const body = await request.json();
 
-    if (!prompt) {
-      return NextResponse.json(
-        { error: "Missing required field: prompt" },
-        { status: 400 }
-      );
+    // Log safely
+    try {
+      console.log("attempts remix___:", body, JSON.stringify(body).slice(0, 500));
+    } catch {
+      console.log("attempts remix: [unserializable body]");
     }
 
-    // ---------- (1) Expand prompt ----------
+    // #### New rich fields ####
+    const prompt: string = String(body?.prompt ?? "");
+    const adjectives: string = String(body?.adjectives ?? "");
+    const styles: string[] = asArray(body?.styles);
+    const communities: string[] = asArray(body?.communities);
+    const trends: string[] = asArray(body?.trends);
+    const descriptions: string[] = asArray(body?.descriptions);
+    const parentIds: string[] = asArray(body?.parentIds);
+    const people: string[] = asArray(body?.people);
+    // support both "object" and "objects"
+    const objectsArr: string[] = asArray(body?.objects ?? body?.object);
+
+    // #### Back-compat fields (optional) ####
+    const folder: string = String(body?.folder ?? "imageEcology");
+    const communityFallback: string = String(body?.community ?? "");
+    const titleIn: string = String(body?.title ?? "");
+    const userTagsArr: string[] = asArray(body?.tags);
+
+    // Compose a single, high-signal prompt for the LLM → Image generator
+    const userPrompt = [
+      `You are an image prompt engineer crafting a *single* vivid social media image prompt in English.`,
+      `Source descriptions (merge meanings, avoid literal collage text):`,
+      ...descriptions.map((d) => `- ${d}`),
+      "",
+      `Desired vibe / tags: ${adjectives || "—"}`,
+      styles.length ? `Style cues: ${join(styles)}` : "",
+      communities.length || communityFallback
+        ? `Community context: ${join(
+            communities.length ? communities : [communityFallback]
+          )}`
+        : "",
+      trends.length ? `Trending motifs: ${join(trends)}` : "",
+      people.length ? `including: ${join(people)}` : "",
+      "",
+      `Constraints:`,
+      `- Unify the scene into one coherent world; not a grid.`,
+      `- If multiple styles are present, harmonize rather than list.`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    // Prompt expansion (compact, one-line)
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4o-mini", // compact + capable
       messages: [
         {
-          role: "user",
+          role: "system",
           content:
-            `pretend you are an image prompt engineer. Expand this into a vivid single image prompt.\n` +
-            `Sentence: ${prompt}\n` +
-            `Vibe: ${adjectives}\n` +
-            `Style hints: medieval drawings, post-internet graphics, sci-fi.\n` +
-            `Output only the prompt.`,
+            "Return a single, compact prompt line suitable for an image model; no preamble; no lists.",
         },
+        { role: "user", content: userPrompt },
       ],
-      max_tokens: 200,
+      max_tokens: 180,
       temperature: 0.8,
     });
 
-    let remixedPrompt =
-      completion.choices?.[0]?.message?.content?.replaceAll('"', "") ?? "";
-    remixedPrompt = remixedPrompt
-      .replaceAll("**", "")
-      .replaceAll("*", "")
-      .replace(/Image Prompt:\s*/i, "")
-      .trim();
+    const sentenceRaw = completion.choices?.[0]?.message?.content ?? "";
+    const remixedPrompt = sentenceRaw.replaceAll('"', "").trim();
 
-    // ---------- (2) Generate image ----------
+    const safetySuffix =
+      "Square image. No text, no UI, no watermark, no signatures.";
+
+    console.log("makes image from parents: ", sentenceRaw);
+
+    // Image generation
     const imageGen = await openai.images.generate({
       model: "dall-e-3",
-      prompt: remixedPrompt || prompt,
-      size: "1024x1024",
+      prompt: `${remixedPrompt}\n${safetySuffix}`.trim(),
       n: 1,
+      size: "1024x1024",
     });
 
-    const b64 = imageGen.data?.[0]?.b64_json;
-    const remoteUrl = imageGen.data?.[0]?.url;
+    const b64 = imageGen.data?.[0]?.b64_json ?? null;
+    const remoteUrl = imageGen.data?.[0]?.url ?? null;
     if (!b64 && !remoteUrl) {
       return NextResponse.json(
         { error: "Image generation returned no data" },
@@ -103,19 +144,21 @@ export async function POST(request: Request) {
       ? `data:image/png;base64,${b64}`
       : (remoteUrl as string);
 
-    // ---------- (3) Upload to Cloudinary (same moderation + context as Upload API) ----------
+    // Title to store (prefer explicit title, then remixed, then original prompt)
+    const titleToStore = titleIn || remixedPrompt || prompt || "image";
+
+    // Pick one community string to store in context (if arrays present, use first)
+    const communityToStore =
+      (communities && communities[0]) || communityFallback || "";
+
+    // ---------- Upload to Cloudinary ----------
     const uploadResult = await cloudinary.uploader.upload(uploadSource, {
       folder,
       context: {
-        alt: title || remixedPrompt || "image",
-        caption: title || remixedPrompt || "image",
-        parentIds:
-          parentIds != null
-            ? Array.isArray(parentIds)
-              ? parentIds.toString()
-              : String(parentIds)
-            : "",
-        community: community ?? null,
+        alt: titleToStore,
+        caption: titleToStore,
+        parentIds: parentIds.length ? parentIds.join(",") : "",
+        community: communityToStore,
       },
       moderation:
         "aws_rek:" +
@@ -131,7 +174,7 @@ export async function POST(request: Request) {
         "gambling:ignore",
     });
 
-    // ---------- (4) Moderation check ----------
+    // Moderation check
     const moderationArr = (uploadResult as any).moderation as
       | {
           status: string;
@@ -150,19 +193,15 @@ export async function POST(request: Request) {
       );
     }
 
-    // ---------- (5) Vision pass (aligned with new Upload API keys) ----------
+    // ---------- Vision enrichment ----------
     const visionPrompt = `
-You will be given an image collected in a users social media feed: "${
-      title || remixedPrompt || prompt
-    }".
+You will be given an image collected in a users social media feed: "${titleToStore}".
 
 Return ONLY minified JSON with these keys:
 {"title":"","caption":"","altText":"","feeling":"","so_me_type":"","trend":"","style":"","tags":[],"vibe":[],"objects":[],"scenes":[],"people":[]}
 
 Rules:
-- "title": ≤ 7 words, aligned with "${
-      title || remixedPrompt || prompt
-    }" (refine if needed).
+- "title": ≤ 7 words, aligned with "${titleToStore}" (refine if needed).
 - "caption": ≤ 2 sentences.
 - "altText": ≤ 15 words, describing neutrally the image.
 - "so_me_type": a title that might identify which Social Media Archetype the image might belong to.
@@ -174,23 +213,23 @@ Rules:
 - "people": check if there are faces; describe each; name celebrity if applicable.
 - No extra text; JSON only.`;
 
-    const visionMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] =
-      [
+    const vision = await openai.chat.completions.create({
+      model: "gpt-4o",
+      temperature: 0.3,
+      response_format: { type: "json_object" },
+      max_tokens: 400,
+      messages: [
         {
           role: "user",
           content: [
             { type: "text", text: visionPrompt },
-            { type: "image_url", image_url: { url: uploadResult.secure_url } },
+            {
+              type: "image_url",
+              image_url: { url: uploadResult.secure_url as string },
+            },
           ],
         },
-      ];
-
-    const vision = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: visionMessages,
-      temperature: 0.3,
-      response_format: { type: "json_object" },
-      max_tokens: 400,
+      ],
     });
 
     const raw = vision.choices?.[0]?.message?.content ?? "{}";
@@ -202,7 +241,7 @@ Rules:
     }
 
     const payload = {
-      title: String(ai?.title ?? title ?? "").trim(),
+      title: String(ai?.title ?? titleToStore ?? "").trim(),
       caption: String(ai?.caption ?? "").trim(),
       altText: String(ai?.altText ?? "").trim(),
       so_me_type: String(ai?.so_me_type ?? "").trim(),
@@ -216,32 +255,35 @@ Rules:
       scenes: Array.isArray(ai?.scenes) ? ai.scenes.map(String) : [],
     };
 
-    // ---------- (6) Merge tags exactly like Upload API ----------
+    // Merge tags: user adjectives & arrays → vision inference
+    const adjectivesAsTags = asArray(adjectives);
     const mergedFromVision = dedupLower([
       ...payload.tags,
       ...payload.vibe,
       ...payload.objects,
       ...payload.scenes,
+      ...objectsArr,
+      ...people,
+      ...styles,
+      ...trends,
+      ...communities,
     ]).slice(0, 25);
 
-    const userTags: string[] = Array.isArray(tags)
-      ? tags
-      : String(tags ?? "")
-          .split(",")
-          .map((t) => t.trim())
-          .filter(Boolean);
+    const finalTags = dedupLower([
+      ...mergedFromVision,
+      ...adjectivesAsTags,
+      ...userTagsArr,
+    ]);
 
-    const finalTags = dedupLower([...mergedFromVision, ...userTags]);
-
-    // Cloudinary expects comma-sep string for tags in explicit()
+    // Cloudinary expects comma-separated tags when using explicit()
     const tagsString = finalTags.join(",");
 
-    // ---------- (7) Enrich uploaded asset to mirror Upload API ----------
+    // ---------- Enrich Cloudinary asset ----------
     await cloudinary.uploader.explicit(uploadResult.public_id, {
       type: "upload",
       tags: tagsString,
       context: {
-        caption: title || remixedPrompt || prompt,
+        caption: titleToStore,
         alt: payload.altText,
         ai_title: payload.title,
         ai_style: payload.style,
@@ -250,22 +292,19 @@ Rules:
         ai_feeling: payload.feeling,
         ai_vibe: (payload.vibe || []).join(", "),
         ai_objects: (payload.objects || []).slice(0, 5).join(", "),
-        community: community ?? "",
-        parentIds:
-          parentIds != null
-            ? Array.isArray(parentIds)
-              ? parentIds
-              : String(parentIds)
-            : "",
+        community: communityToStore,
+        parentIds: parentIds.join(","),
         ai_people: payload.people,
+        // also echo inputs for lineage/auditing
+        remix_prompt: remixedPrompt,
       },
     });
 
-    // ---------- (8) Response aligned with Upload API (plus remixedPrompt) ----------
+    // ---------- Response (compatible with your client DTO) ----------
     return NextResponse.json({
       url: uploadResult.secure_url,
       publicId: uploadResult.public_id,
-      title: title || remixedPrompt || prompt,
+      title: titleToStore,
       alt: payload.altText,
       ai_title: payload.title,
       ai_vibe: (payload.vibe || []).join(", "),
@@ -273,16 +312,22 @@ Rules:
       ai_style: payload.style,
       ai_trend: payload.trend,
       ai_so_me_type: payload.so_me_type,
-      community: community ?? "",
-      tags: finalTags, // array (client can join if needed)
-      parentIds:
-        parentIds != null
-          ? Array.isArray(parentIds)
-            ? parentIds
-            : String(parentIds)
-          : null,
+      community: communityToStore,
+      tags: finalTags, // array
+      parentIds: parentIds.length ? parentIds : null,
       ai_people: payload.people,
-      remixedPrompt, // handy for your UI/extras
+      remixedPrompt, // handy for UI/extras
+      // also return raw inputs for reference
+      inputs: {
+        prompt,
+        adjectives,
+        styles,
+        communities,
+        trends,
+        descriptions,
+        people,
+        objects: objectsArr,
+      },
     });
   } catch (error) {
     console.error("Generate+Upload error:", error);
