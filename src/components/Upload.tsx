@@ -93,7 +93,7 @@ export function Upload() {
       sessionStorage.setItem("userId", storedUserId);
     }
 
-    const s = io("https://dancingwai-11f115b681e2.herokuapp.com", {
+    const s = io("http://imageecologysocket-edc8af2d0169.herokuapp.com", {
       autoConnect: false,
     });
     socketRef.current = s;

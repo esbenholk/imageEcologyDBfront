@@ -80,7 +80,7 @@ export async function POST(request: Request) {
 
     // Compose a single, high-signal prompt for the LLM → Image generator
     const userPrompt = [
-      `You are an image prompt engineer crafting a *single* vivid social media image prompt in English.`,
+      `You are an image prompt engineer crafting a *single* vivid social media image prompt in English. PLease ensure the prompt will follow our content guidelines.`,
       `Source descriptions (merge meanings, avoid literal collage text):`,
       ...descriptions.map((d) => `- ${d}`),
       "",
