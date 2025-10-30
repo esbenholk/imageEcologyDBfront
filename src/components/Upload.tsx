@@ -93,7 +93,7 @@ export function Upload() {
       sessionStorage.setItem("userId", storedUserId);
     }
 
-    const s = io("http://imageecologysocket-edc8af2d0169.herokuapp.com", {
+    const s = io("https://imageecologysocket-edc8af2d0169.herokuapp.com", {
       autoConnect: false,
     });
     socketRef.current = s;
