@@ -73,23 +73,41 @@ export async function POST(request: Request) {
       console.log("image not rejected", wasRejected);
 
       const visionPrompt = `
-        You will be given an image collected in a users social media feed: "${title}".
+You will be given an image from a user's social feed titled: "${title}".
 
-        Return ONLY minified JSON with these keys:
-        {"title":"","caption":"","altText":"","feeling":"","so_me_type":"", "trend: "", "style: "", "feeling": "","tags":[],"vibe":[],"objects":[],"scenes":[], "people":[]}
+Return ONLY minified JSON with these keys:
+{"title":"","caption":"","altText":"","so_me_type":"","trend":"","feeling":"","tags":[],"vibe":[],"objects":[],"scenes":[],"people":[],"style":""}
 
-        Rules:
-        - "title": ≤ 7 words, aligned with "${title}" (refine if needed).
-        - "caption": ≤ 2 sentences".
-        - "altText": ≤ 15 words, describing neutrally the image. 
-        - "so_me_type": a title that might idenitify which Social Media Archetype the image might belong to".
-        - "trend": a title that might idenitify which viral trend the image belongs to".
-        - "tags": up to 12 short tags (nouns/adjectives; no hashtags/emojis).
-        - "feeling": speculate what feelings it might produce looking at the picture and/or what feelings are the reason i want to look at the image.
-        - "objects": up to 8 concrete things visible.
-        - "style": sentences describing the image style for further image prompting and reproducing. this should incl. if the image is a photograph, illustration, drawing etc. please also annotate if its realistic or not. basically any style comments that might help me prompt a reproduction.
-        - "people": check if there are any faces. Please describe each face. If they are a celebrity, please name them.
-        - No extra text; JSON only.`;
+Rules:
+- Output strictly minified JSON. No commentary, no newlines.
+- "title": ≤7 words, aligned with "${title}" (refine if needed).
+- "caption": ≤2 sentences.
+- "altText": ≤15 words, literal neutral description.
+- "so_me_type": a short label of the social media archetype (e.g., "travel aesthetic", "haul review").
+- "trend": short name of any identifiable trend (e.g., "get ready with me") or "".
+- "feeling": short phrase for emotional tone or desire.
+- "tags": up to 12 short tags (nouns/adjectives only; no hashtags/emojis).
+- "vibe": 3–7 mood or atmosphere words.
+- "objects": ≤8 concrete visible things.
+- "scenes": up to 3 concise scene descriptors (e.g., "urban rooftop at sunset").
+- "people": array of brief descriptors (age range, gender presentation, expression, celebrity if clear).
+
+STYLE (critical for reproduction):
+- "style" must be a **single, coherent natural-language string** that can be reused directly as a generative image prompt.
+- It should describe:
+  • the medium (photograph, 3D render, illustration, etc.)
+  • the realism level ("photorealistic", "hyperrealistic", "stylized", "cartoon", etc.)
+  • lighting (type, quality, direction, time of day)
+  • color treatment (palette, tone, contrast)
+  • composition (framing, perspective)
+  • postprocessing or aesthetic look (film grain, cinematic grading, matte finish, etc.)
+  • influences or mood adjectives that help reproduce the image vibe.
+- If the source image is a photograph, the string MUST clearly state that it’s **“photograph” or “photorealistic photo”**, and must not include non-photo terms like “painting”, “illustration”, or “digital art”.
+- Use concise, comma-separated descriptive tokens suitable for an image model prompt.
+- Avoid fluff. Aim for ~1–3 short sentences or a comma-separated list.
+
+Output minified JSON only.
+`;
 
       const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
         {
